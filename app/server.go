@@ -1,10 +1,12 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -45,7 +47,11 @@ func main() {
 
 			parts := strings.Split(string(buffer), "\r\n")
 
+			body := parts[len(parts)-1]
+
 			request := strings.Split(parts[0], " ")
+
+			method := request[0] // GET, POST
 
 			route := request[1]
 
@@ -82,32 +88,43 @@ func main() {
 					*directory += "/"
 				}
 
-				content, err := os.ReadFile(*directory + filename)
+				switch method {
+				case "GET":
+					content, err := os.ReadFile(*directory + filename)
+					if err != nil {
+						response = "HTTP/1.1 404 Not Found\r\n\r\n"
+						break
+					}
+
+					response = fmt.Sprintf(
+						"HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s",
+						len(content), content,
+					)
+				case "POST":
+					contentLength, _ := getHeader(parts, "Content-Length")
+					length, _ := strconv.Atoi(contentLength)
+
+					body = body[:length]
+
+					err = os.WriteFile(*directory+filename, []byte(body), 0644)
+					if err != nil {
+						response = "HTTP/1.1 400 Bad Request\r\n\r\n" + err.Error()
+						break
+					}
+
+					response = "HTTP/1.1 201 Created\r\n\r\n"
+				}
+			case "user-agent":
+				userAgent, err := getHeader(parts, "User-Agent")
 				if err != nil {
-					response = "HTTP/1.1 404 Not Found\r\n\r\n"
+					response = "HTTP/1.1 404 Not Found\r\n\r\n" + err.Error()
 					break
 				}
 
 				response = fmt.Sprintf(
-					"HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s",
-					len(content), content,
+					"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s",
+					len(userAgent), userAgent,
 				)
-			case "user-agent":
-				// iterate over the headers until finding an empty part (between the last \r\n (empty) \r\n)
-				curHeaderIdx := 1
-				for curHeaderIdx < len(parts)-1 && parts[curHeaderIdx] != "" {
-					kv := strings.Split(parts[curHeaderIdx], ": ")
-
-					if kv[0] == "User-Agent" {
-						response = fmt.Sprintf(
-							"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s",
-							len(kv[1]), kv[1],
-						)
-						break
-					}
-
-					curHeaderIdx += 1
-				}
 			default:
 				response = "HTTP/1.1 404 Not Found\r\n\r\n"
 			}
@@ -119,4 +136,19 @@ func main() {
 			}
 		}(conn)
 	}
+}
+
+func getHeader(parts []string, key string) (string, error) {
+	// iterate over the headers until finding an empty part (between the last \r\n (empty) \r\n)
+	curHeaderIdx := 1
+	for curHeaderIdx < len(parts)-1 && parts[curHeaderIdx] != "" {
+		kv := strings.Split(parts[curHeaderIdx], ": ")
+
+		if kv[0] == key {
+			return kv[1], nil
+		}
+
+		curHeaderIdx += 1
+	}
+	return "", errors.New("Could not find header")
 }
