@@ -57,6 +57,22 @@ func main() {
 			len(path[1]),
 			path[1],
 		)
+	case "user-agent":
+		// iterate over the headers until finding an empty part (between the last \r\n (empty) \r\n)
+		curHeaderIdx := 1
+		for curHeaderIdx < len(parts)-1 && parts[curHeaderIdx] != "" {
+			kv := strings.Split(parts[curHeaderIdx], ": ")
+
+			if kv[0] == "User-Agent" {
+				response = fmt.Sprintf(
+					"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s",
+					len(kv[1]), kv[1],
+				)
+				break
+			}
+
+			curHeaderIdx += 1
+		}
 	default:
 		response = "HTTP/1.1 404 Not Found\r\n\r\n"
 	}
