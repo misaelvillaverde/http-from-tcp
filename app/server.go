@@ -28,24 +28,40 @@ func main() {
 		}
 	}()
 
-	request := make([]byte, 50)
-	_, err = conn.Read(request)
+	buffer := make([]byte, 1024)
+	_, err = conn.Read(buffer)
 	if err != nil {
 		fmt.Println("Error reading data from the connection: ", err.Error())
 		os.Exit(1)
 	}
 
-	parts := strings.Split(string(request), "\r\n")
+	parts := strings.Split(string(buffer), "\r\n")
 
-	requestLine := strings.Split(parts[0], " ")
+	request := strings.Split(parts[0], " ")
 
-	switch requestLine[1] {
-	case "/":
-		_, err = conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+	route := request[1]
+
+	path := strings.Split(route, "/")[1:]
+
+	var response string
+	switch path[0] {
+	case "":
+		response = "HTTP/1.1 200 OK\r\n\r\n"
+	case "echo":
+		if len(path) <= 1 {
+			response = "HTTP/1.1 400 Bad Request\r\n\r\n"
+			break
+		}
+		response = fmt.Sprintf(
+			"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s",
+			len(path[1]),
+			path[1],
+		)
 	default:
-		_, err = conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
+		response = "HTTP/1.1 404 Not Found\r\n\r\n"
 	}
 
+	_, err = conn.Write([]byte(response))
 	if err != nil {
 		fmt.Println("Error writing data to the connection: ", err.Error())
 		os.Exit(1)
