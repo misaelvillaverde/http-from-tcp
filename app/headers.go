@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 const CLRF = "\r\n"
 
@@ -31,18 +34,22 @@ var validEncoding = [...]string{
 }
 
 func (h *Headers) setEncoding(value string) *Headers {
-	isValid := false
-	for _, e := range validEncoding {
-		if e == value {
-			isValid = true
-			break
+	values := strings.Split(value, ",")
+
+	found := ""
+	for _, value := range values {
+		for _, enc := range validEncoding {
+			if enc == strings.TrimSpace(value) {
+				found = value
+				break
+			}
 		}
 	}
-	if !isValid {
+	if found == "" {
 		return h
 	}
 
-	h.contentEncoding = value
+	h.contentEncoding = found
 
 	return h
 }
