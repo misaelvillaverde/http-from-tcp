@@ -60,25 +60,34 @@ func main() {
 			var response string
 			switch path[0] {
 			case "":
-				response = "HTTP/1.1 200 OK\r\n\r\n"
+				response = "HTTP/1.1 200 OK" + CLRF + CLRF
 			case "echo":
 				if len(path) <= 1 {
-					response = "HTTP/1.1 400 Bad Request\r\n\r\n"
+					response = "HTTP/1.1 400 Bad Request" + CLRF + CLRF
 					break
 				}
-				response = fmt.Sprintf(
-					"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s",
-					len(path[1]),
-					path[1],
-				)
+
+				acceptEncoding, _ := getHeader(parts, "Accept-Encoding")
+
+				headers := NewHeaders().
+					setEncoding(acceptEncoding).
+					setContentType("text/plain").
+					setContentLength(len(path[1]))
+
+				response =
+					"HTTP/1.1 200 OK" +
+						CLRF +
+						headers.String() +
+						CLRF +
+						path[1]
 			case "files":
 				if directory == nil {
-					response = "HTTP/1.1 404 Not Found\r\n\r\n"
+					response = "HTTP/1.1 404 Not Found" + CLRF + CLRF
 					break
 				}
 
 				if len(path) <= 1 {
-					response = "HTTP/1.1 400 Bad Request\r\n\r\n"
+					response = "HTTP/1.1 400 Bad Request" + CLRF + CLRF
 					break
 				}
 
@@ -92,14 +101,20 @@ func main() {
 				case "GET":
 					content, err := os.ReadFile(*directory + filename)
 					if err != nil {
-						response = "HTTP/1.1 404 Not Found\r\n\r\n"
+						response = "HTTP/1.1 404 Not Found" + CLRF + CLRF
 						break
 					}
 
-					response = fmt.Sprintf(
-						"HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s",
-						len(content), content,
-					)
+					headers := NewHeaders().
+						setContentType("application/octet-stream").
+						setContentLength(len(content))
+
+					response =
+						"HTTP/1.1 200 OK" +
+							CLRF +
+							headers.String() +
+							CLRF +
+							string(content)
 				case "POST":
 					contentLength, _ := getHeader(parts, "Content-Length")
 					length, _ := strconv.Atoi(contentLength)
@@ -108,25 +123,31 @@ func main() {
 
 					err = os.WriteFile(*directory+filename, []byte(body), 0644)
 					if err != nil {
-						response = "HTTP/1.1 400 Bad Request\r\n\r\n" + err.Error()
+						response = "HTTP/1.1 400 Bad Request" + CLRF + CLRF + err.Error()
 						break
 					}
 
-					response = "HTTP/1.1 201 Created\r\n\r\n"
+					response = "HTTP/1.1 201 Created" + CLRF + CLRF
 				}
 			case "user-agent":
 				userAgent, err := getHeader(parts, "User-Agent")
 				if err != nil {
-					response = "HTTP/1.1 404 Not Found\r\n\r\n" + err.Error()
+					response = "HTTP/1.1 404 Not Found" + CLRF + CLRF + err.Error()
 					break
 				}
 
-				response = fmt.Sprintf(
-					"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s",
-					len(userAgent), userAgent,
-				)
+				headers := NewHeaders().
+					setContentType("text/plain").
+					setContentLength(len(userAgent))
+
+				response =
+					"HTTP/1.1 200 OK" +
+						CLRF +
+						headers.String() +
+						CLRF +
+						userAgent
 			default:
-				response = "HTTP/1.1 404 Not Found\r\n\r\n"
+				response = "HTTP/1.1 404 Not Found" + CLRF + CLRF
 			}
 
 			_, err = conn.Write([]byte(response))
