@@ -1,13 +1,18 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"net"
 	"os"
 	"strings"
 )
 
+var directory = flag.String("directory", "/", "define root directory")
+
 func main() {
+	flag.Parse()
+
 	l, err := net.Listen("tcp", "0.0.0.0:4221")
 	if err != nil {
 		fmt.Println("Failed to bind to port 4221")
@@ -59,6 +64,33 @@ func main() {
 					"HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s",
 					len(path[1]),
 					path[1],
+				)
+			case "files":
+				if directory == nil {
+					response = "HTTP/1.1 404 Not Found\r\n\r\n"
+					break
+				}
+
+				if len(path) <= 1 {
+					response = "HTTP/1.1 400 Bad Request\r\n\r\n"
+					break
+				}
+
+				filename := path[1]
+
+				if (*directory)[len(*directory)-1] != '/' {
+					*directory += "/"
+				}
+
+				content, err := os.ReadFile(*directory + filename)
+				if err != nil {
+					response = "HTTP/1.1 404 Not Found\r\n\r\n"
+					break
+				}
+
+				response = fmt.Sprintf(
+					"HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s",
+					len(content), content,
 				)
 			case "user-agent":
 				// iterate over the headers until finding an empty part (between the last \r\n (empty) \r\n)
