@@ -74,12 +74,14 @@ func main() {
 					setContentType("text/plain").
 					setContentLength(len(path[1]))
 
+				body := headers.EncodeData(path[1])
+
 				response =
 					"HTTP/1.1 200 OK" +
 						CLRF +
 						headers.String() +
 						CLRF +
-						path[1]
+						string(body)
 			case "files":
 				if directory == nil {
 					response = "HTTP/1.1 404 Not Found" + CLRF + CLRF

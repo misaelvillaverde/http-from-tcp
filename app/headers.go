@@ -54,6 +54,25 @@ func (h *Headers) setEncoding(value string) *Headers {
 	return h
 }
 
+func (h *Headers) EncodeData(data string) string {
+	var body string
+	var err error
+
+	switch h.contentEncoding {
+	case "gzip":
+		body, err = gzipEncode(data)
+		if err != nil {
+			body = data
+		}
+	default:
+		body = data
+	}
+
+	h.contentLength = len(body)
+
+	return body
+}
+
 func (h *Headers) String() string {
 	headers := ""
 
